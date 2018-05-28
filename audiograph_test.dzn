@@ -1,0 +1,5 @@
+nbTasks = 5;
+
+samplerate = 44100;
+
+deadline=1000;

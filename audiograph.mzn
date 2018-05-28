@@ -13,31 +13,35 @@ constraint forall(t1 in outputs, t2 in TASKS)(audiograph[t1,t2] = false);
 
 include "globals.mzn";
 
-% Paths in the graph 
-int : max_edges = nbTasks * (nbTasks - 1);% Self-loops are forbidden (and there are no loops on the graph)
 set of int: TASKS0 = 0..nbTasks;
-set of int: EDGES = 1..max_edges;
-array[EDGES, 1..2] of var TASKS0 : edge_graph;
-constraint alldifferent_except_0([edge_graph[i,j] | i in 1..max_edges, j in 1..2]);
-% Channeling the two graph representations
-constraint forall(t1, t2 in TASKS, i in 1..max_edges)(audiograph[t1,t2] <-> edge_graph[i, 1] = t1 /\ edge_graph[i,2] = t2);
-% Finding all paths between inputs and outputs
 
+% int : max_edges = nbTasks * (nbTasks - 1);% Self-loops are forbidden (and there are no loops on the graph)
+% set of int: EDGES = 1..max_edges;
+% array[EDGES, 1..2] of var TASKS0 : edge_graph;
+% constraint alldifferent_except_0([edge_graph[i,j] | i in 1..max_edges, j in 1..2]);
+% % Channeling the two graph representations
+% constraint forall(t1, t2 in TASKS, i in 1..max_edges)(audiograph[t1,t2] <-> edge_graph[i, 1] = t1 /\ edge_graph[i,2] = t2);
+% % Finding all paths between inputs and outputs
+
+/******************************
+ ** Paths in a graph 
+ *****************************/
 array[TASKS] of TASKS0 : paths;% Acyclic so any path uses at most the number of nodes in the graph
-predicate is_path_mat(array[TASKS] of var TASKS0: path) = % adjacency with the matrix
-  forall(i in 2..length(path))(audiograph[path[i-1], path[i]]);
-% array[TASKS, TASKS] of var TASKS0 : adj_graph;
-% constraint forall(r in index_set_1of2(adj_graph))(alldifferent_except_0(row(adj_graph, r)));
-% % Channeling
-% constraint forall(t1, i in TASKS, t2 in TASKS0)(adj_graph[t1, i] = t2 <-> audiograph[t1, t2]); % t2 = 0 <-> no connexion
-% predicate is_path_adj(array[TASKS] of var TASKS0: path) = % With adjacency list. Probably problem with 0. Probably less efficient than is_path_mat
-%       forall(i in 2..length(path))(path[i] in {adj_graph[path[i-1], j] | j in index_set_2of2(adj_graph)});
 
+constraint alldifferent_except_0(paths);%A path is made of different tasks (no cycles).
+constraint forall(i in NODES)( paths[i] = 0 -> forall(j in i..nbNodes)(paths[j] = 0)); % We put the zeros at the end
+predicate is_path_mat(array[TASKS] of var TASKS0: path) = % with incidence matrix 
+  let {var 2..nbTasks: end; } in
+  forall(j in end+1..nbTasks)(path[j] = 0) /\
+  forall(i in 2..end)(audiograph[path[i-1], path[i]]) ;
+constraint is_path_mat(paths);%The nodes in order in the array form a path
+  
 
 
         
-
-% Resampler stuff
+/******************************
+ ** Resamplers
+ *****************************/
 enum RESAMPLER;
 RESAMPLER: NoResampler;
 array[RESAMPLER] of 0..100 : quality;% Compute it using the formula
@@ -83,6 +87,10 @@ array[TASKS] of var TIME : start;
 
 
 
+/******************************
+ ** Scheduling the tasks
+ *****************************/
+
 % Precedence relation
 constraint forall(t1, t2 in TASKS where audiograph[t1,t2])(start[t1] + duration[t1] <= start[t2]);
 constraint active_resamplers_start_duration(resampler, resampler_dur, resampler_start, duration, start); % For resamplers
@@ -94,6 +102,11 @@ constraint disjunctive(start ++ resampler_start, duration ++ resampler_dur);
 % TODO: express duration of tasks when they are on a resampled branch
 var int : total_duration = sum(duration) + sum(t1,t2 in TASKS where resampler[t1,t2] != NoResampler)(resampler_duration[resampler[t1,t2]]);
 constraint total_duration < deadline;
+
+
+/******************************
+ ** Quality
+ *****************************/
 
 % Quality
 var int: graph_quality;
