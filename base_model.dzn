@@ -1,0 +1,23 @@
+nbTasks = 4;
+
+samplerate = 44100;
+
+deadline=1000;
+
+
+/* A simple chain: e1 -> e2 -> e3 -> e4 */
+audiograph = [| false, true, false, false 
+              | false, false, true, false 
+              | false, false, false, true
+              | false, false, false, false |];
+
+
+/* Resamplers */
+Resampler = {NoResampler, Upsampler, DownSampler}
+quality = [100, 50, 50];
+resampler_factor = [1, 2, -2]
+resampler_duration = [0, 30, 30]
+
+/* Tasks */
+duration = [150, 300, 400, 250]; /* On purpose, it's more than the deadline, which is 1000, so that we have to degrade */
+/* duration = [150, 300, 300, 200 ];  */ /* Uncomment this line to try the case where there is no need to degrade */

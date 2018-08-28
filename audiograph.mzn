@@ -28,8 +28,8 @@ set of int: TASKS0 = 0..nbTasks;
  *****************************/
 array[TASKS] of TASKS0 : paths;% Acyclic so any path uses at most the number of nodes in the graph
 
-constraint alldifferent_except_0(paths);%A path is made of different tasks (no cycles).
-constraint forall(i in NODES)( paths[i] = 0 -> forall(j in i..nbNodes)(paths[j] = 0)); % We put the zeros at the end
+constraint alldifferent_except_0(paths);% A path is made of different tasks (no cycles).
+constraint forall(i in TASKS)( paths[i] = 0 -> forall(j in i..nbTasks)(paths[j] = 0)); % We put the zeros at the end
 predicate is_path_mat(array[TASKS] of var TASKS0: path) = % with incidence matrix 
   let {var 2..nbTasks: end; } in
   forall(j in end+1..nbTasks)(path[j] = 0) /\
@@ -74,9 +74,20 @@ predicate active_resamplers_start_duration(array[TASKS,TASKS] of var RESAMPLER :
          /\ duration_r = [dur[t1,t2] | t1, t2 in TASKS]
          /\ let {array[1..max_resamplers] of var opt TIME : temp = [sta[t1,t2] | t1, t2 in TASKS where resampl[t1,t2] != NoResampler];} in
                  array_opt_eq(start_r, temp);
-         
+
+%To know if we are on a resampling subpath or not     
+% TODO: write a predicate
+% Idea: a subpath that starts by a downsample and finish by an upsample with no resamplers inside
+
+% Check that there are no resampler on the path %TODO: take care of trailing zeroes
+predicate no_resamplers(array[TASKS] of var TASKS0 : path) = 
+  forall(i in 1..nbTasks - 1)(resampler[path[i], path[i - 1]] = NoResampler);
 
 
+/******************************
+ ** Scheduling the tasks
+ *****************************/
+ 
 array[TASKS] of int : duration;
 /*  Maximum possible duration: execution of all tasks + all resamplers.
 The bound is not tight, as we should only have two resamplers per branches...
@@ -84,12 +95,6 @@ The bound is not tight, as we should only have two resamplers per branches...
 int : time = sum(duration) + sum(t1, t2 in TASKS where audiograph[t1,t2])(max_duration); 
 set of int : TIME = 0..time;
 array[TASKS] of var TIME : start;
-
-
-
-/******************************
- ** Scheduling the tasks
- *****************************/
 
 % Precedence relation
 constraint forall(t1, t2 in TASKS where audiograph[t1,t2])(start[t1] + duration[t1] <= start[t2]);
